@@ -368,11 +368,18 @@ function OfferCard({ offer }) {
       )}
 
       <button
-        style={offersStyles.buyBtn}
-        onClick={() => (window.location.href = offer.url)}
-      >
-        Quero esse
-      </button>
+  style={offersStyles.buyBtn}
+  onClick={() => {
+    const params = window.location.search; // UTMs do anúncio
+    const url = offer.url.includes("?")
+      ? offer.url + "&" + params.replace("?", "")
+      : offer.url + params;
+
+    window.location.href = url;
+  }}
+>
+  Quero esse
+</button>
     </div>
   );
 }
