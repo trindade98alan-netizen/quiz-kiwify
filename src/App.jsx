@@ -633,3 +633,4 @@ const offersStyles = {
   testName: { fontWeight: 900, color: "#111827", fontSize: 14, lineHeight: 1.2 },
   testRole: { color: "#64748b", fontSize: 12, marginTop: 2 },
 };
+console.log("TESTE UTMIFY");
