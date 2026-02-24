@@ -6,18 +6,14 @@ import { useEffect, useMemo, useState } from "react";
 
 function utmifyTrack(event, data = {}) {
   try {
-    // Algumas versões expõem um objeto global
     if (window.utmify && typeof window.utmify.track === "function") {
       window.utmify.track(event, data);
       return;
     }
 
-    // Fallback: dataLayer (não quebra, e algumas integrações leem daqui)
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({ event, ...data });
-  } catch (e) {
-    // Nunca deixa quebrar o app
-  }
+  } catch (e) {}
 }
 
 /* =========================
@@ -90,6 +86,9 @@ const questions = [
 
 /* =========================
    2) OFERTAS (Kiwify links)
+   bullets agora aceitam:
+   - { type: "text", text: "..." }
+   - { type: "heading", text: "..." }  (negrito/caixa alta)
 ========================= */
 
 const offers = [
@@ -102,7 +101,12 @@ const offers = [
     url: "https://pay.kiwify.com.br/T2t4PBq",
     image: "/card1.png",
     bullets: [
-      "Criada para ajudar você a organizar suas finanças de forma simples, rápida e prática. Controle gastos, acompanhe entradas, metas e pagamentos em um só lugar. Tenha clareza do seu dinheiro, elimine desperdícios e assuma o controle da sua vida financeira começando hoje.",
+      { type: "text", text: "Acesso vitalício" },
+      { type: "text", text: "Atualização constante" },
+      { type: "text", text: "Vídeo aula ensinando a usar" },
+      { type: "text", text: "Sem mensalidade" },
+      { type: "text", text: "Personalize de acordo as suas necessidades" },
+      { type: "text", text: "Feita para iniciantes e experientes" },
     ],
     highlight: false,
   },
@@ -115,9 +119,22 @@ const offers = [
     url: "https://pay.kiwify.com.br/KEpAvGm",
     image: "/card2.png",
     bullets: [
-      "Acesso ao sistema Parcelado Nunca Mais: veja quanto do seu dinheiro já está comprometido antes de parcelar qualquer compra.",
-      "Controle parcelas, valores mensais e saiba exatamente quando cada dívida termina.",
-      "Simples, online e fácil de usar — ideal pra quem quer parar de se enrolar no cartão.",
+      { type: "heading", text: "TUDO O QUE TEM NO ANTERIOR +" },
+      {
+        type: "text",
+        text:
+          "Acesso ao sistema Parcelado Nunca Mais: veja quanto do seu dinheiro já está comprometido antes de parcelar qualquer compra.",
+      },
+      {
+        type: "text",
+        text:
+          "Controle parcelas, valores mensais e saiba exatamente quando cada dívida termina.",
+      },
+      {
+        type: "text",
+        text:
+          "Simples, online e fácil de usar — ideal pra quem quer parar de se enrolar no cartão.",
+      },
     ],
     highlight: false,
   },
@@ -130,11 +147,32 @@ const offers = [
     url: "https://pay.kiwify.com.br/eSTSn8r",
     image: "/card3.png",
     bullets: [
-      "Suporte prioritário humanizado no whatsapp (pegamos na sua mão e te ajudamos até você ver as coisas acontecendo)",
-      "Planilha Vida Sem Dívidas, criada para ajudar você a organizar suas finanças de forma simples, rápida e prática.",
-      "ANTI-IMPULSO: antes de gastar, pergunte para a IA. Funciona direto pelo ChatGPT e te ajuda a decidir melhor com seu dinheiro.",
-      "MÉTODO S.O.M: um sistema com direção clara para pessoas comuns saírem do caos e começarem a avançar de verdade.",
-      "PARCELADO NUNCA MAIS: veja quanto do seu dinheiro já está comprometido antes de parcelar, controle parcelas e saiba quando termina.",
+      { type: "heading", text: "TUDO O QUE TEM NOS DOIS ANTERIORES +" },
+      {
+        type: "text",
+        text:
+          "Suporte prioritário humanizado no whatsapp (pegamos na sua mão e te ajudamos até você ver as coisas acontecendo)",
+      },
+      {
+        type: "text",
+        text:
+          "Planilha Vida Sem Dívidas, criada para ajudar você a organizar suas finanças de forma simples, rápida e prática.",
+      },
+      {
+        type: "text",
+        text:
+          "ANTI-IMPULSO: antes de gastar, pergunte para a IA. Funciona direto pelo ChatGPT e te ajuda a decidir melhor com seu dinheiro.",
+      },
+      {
+        type: "text",
+        text:
+          "MÉTODO S.O.M: um sistema com direção clara para pessoas comuns saírem do caos e começarem a avançar de verdade.",
+      },
+      {
+        type: "text",
+        text:
+          "PARCELADO NUNCA MAIS: veja quanto do seu dinheiro já está comprometido antes de parcelar, controle parcelas e saiba quando termina.",
+      },
     ],
     highlight: true,
   },
@@ -338,7 +376,7 @@ function OffersPage({ totalScore, maxScore }) {
           ))}
         </div>
 
-        <img src="/garantia.png" alt="Garantia 30 dias" style={offersStyles.garantia} />
+        <GarantiaSection />
 
         <div style={{ marginTop: 18 }}>
           <h3 style={offersStyles.h3}>RELATOS DE QUEM ADQUIRIU</h3>
@@ -374,21 +412,28 @@ function OfferCard({ offer }) {
 
       {offer.bullets?.length > 0 && (
         <ul style={offersStyles.bullets}>
-          {offer.bullets.map((b, i) => (
-            <li key={i} style={offersStyles.bulletItem}>
-              ✅ {b}
-            </li>
-          ))}
+          {offer.bullets.map((b, i) => {
+            if (b.type === "heading") {
+              return (
+                <li key={i} style={offersStyles.bulletHeading}>
+                  <strong>{b.text}</strong>
+                </li>
+              );
+            }
+            return (
+              <li key={i} style={offersStyles.bulletItem}>
+                ✅ {b.text}
+              </li>
+            );
+          })}
         </ul>
       )}
 
       <button
         style={offersStyles.buyBtn}
         onClick={() => {
-          // evento de clique (antes do redirect)
           utmifyTrack("offer_click", { offerId: offer.id, offerTitle: offer.title });
 
-          // ✅ repassa TODOS os params (utm_*, fbclid, gclid, etc)
           const currentParams = new URLSearchParams(window.location.search);
           const paramsString = currentParams.toString();
 
@@ -403,6 +448,44 @@ function OfferCard({ offer }) {
       >
         Quero esse
       </button>
+    </div>
+  );
+}
+
+function GarantiaSection() {
+  return (
+    <div style={garantiaStyles.wrap}>
+      <div style={garantiaStyles.tag}>GARANTIA TOTAL</div>
+
+      <div style={garantiaStyles.title}>
+        Experimente por <span style={garantiaStyles.titleStrong}>7 dias</span> — Sem risco ✅
+      </div>
+
+      <div style={garantiaStyles.text}>
+        Eu confio tanto que essa planilha vai te dar clareza e controle do seu dinheiro,
+        que vou te dar <strong>7 dias</strong> pra testar sem medo.
+      </div>
+
+      <div style={garantiaStyles.text}>
+        Se dentro de 7 dias você achar que não vale a pena, é só pedir e você recebe{" "}
+        <strong>100% do seu dinheiro</strong> de volta.
+      </div>
+
+      <div style={garantiaStyles.text}>
+        Sem enrolação. Sem burocracia. O risco é meu. Você só testa.
+      </div>
+
+      <div style={garantiaStyles.text}>
+        Ou você organiza sua vida financeira... ou eu devolvo o seu dinheiro.
+      </div>
+
+      <div style={garantiaStyles.sealWrap}>
+        <img
+          src="/garantia-7dias.png"
+          alt="Garantia 7 dias"
+          style={garantiaStyles.sealImg}
+        />
+      </div>
     </div>
   );
 }
@@ -605,6 +688,18 @@ const offersStyles = {
 
   bullets: { listStyle: "none", padding: 0, margin: "12px 0 0 0" },
   bulletItem: { fontSize: 12, color: "#334155", marginTop: 8, lineHeight: 1.35, whiteSpace: "normal", wordBreak: "break-word" },
+  bulletHeading: {
+    marginTop: 10,
+    fontSize: 12,
+    color: "#111827",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+    background: "#f3f4f6",
+    border: "1px solid #e5e7eb",
+    padding: "8px 10px",
+    borderRadius: 12,
+    lineHeight: 1.2,
+  },
 
   buyBtn: {
     width: "100%",
@@ -619,8 +714,6 @@ const offersStyles = {
     marginTop: "auto",
   },
 
-  garantia: { width: "100%", maxWidth: 240, display: "block", margin: "16px auto 0 auto" },
-
   h3: { fontSize: 13, letterSpacing: 0.6, margin: "0 0 10px 0", textAlign: "center" },
 
   testimonial: { border: "1px solid #e5e7eb", background: "#ffffff", borderRadius: 14, padding: 14, marginTop: 10, textAlign: "left" },
@@ -628,4 +721,53 @@ const offersStyles = {
   avatar: { width: 44, height: 44, borderRadius: "50%", objectFit: "cover", border: "1px solid #e5e7eb" },
   testName: { fontWeight: 900, color: "#111827", fontSize: 14, lineHeight: 1.2 },
   testRole: { color: "#64748b", fontSize: 12, marginTop: 2 },
+};
+
+const garantiaStyles = {
+  wrap: {
+    marginTop: 18,
+    paddingTop: 8,
+    textAlign: "center",
+  },
+  tag: {
+    display: "inline-block",
+    background: "#7c3aed",
+    color: "#ffffff",
+    fontWeight: 900,
+    fontSize: 11,
+    padding: "6px 10px",
+    borderRadius: 999,
+    letterSpacing: 0.4,
+    marginBottom: 10,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: 900,
+    color: "#0f172a",
+    marginBottom: 10,
+  },
+  titleStrong: {
+    color: "#0f172a",
+    textDecoration: "underline",
+    textUnderlineOffset: 3,
+  },
+  text: {
+    fontSize: 12,
+    color: "#334155",
+    lineHeight: 1.5,
+    margin: "6px auto",
+    maxWidth: 720,
+  },
+  sealWrap: {
+    width: "100%",
+    display: "flex",
+    justifyContent: "center",
+    marginTop: 12,
+  },
+  sealImg: {
+    width: "100%",
+    maxWidth: 280,
+    height: "auto",
+    display: "block",
+  },
 };
