@@ -1,773 +1,130 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 
-/* =========================
-   UTMIFY EVENTS (helpers)
-========================= */
-
-function utmifyTrack(event, data = {}) {
+function track(event, data = {}) {
   try {
-    if (window.utmify && typeof window.utmify.track === "function") {
-      window.utmify.track(event, data);
-      return;
-    }
-
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({ event, ...data });
-  } catch (e) {}
+    if (typeof window.utmify?.track === 'function') window.utmify.track(event, data);
+  } catch { /* Tracking must never interrupt the experience. */ }
 }
-
-/* =========================
-   1) QUIZ (6 perguntas)
-========================= */
 
 const questions = [
-  {
-    question:
-      "Você sabe exatamente quanto dinheiro entrou e quanto saiu da sua conta no último mês?",
-    description:
-      "Não existe certo ou errado aqui. Escolha a opção que mais parece com a sua realidade hoje, isso vai ajudar a montar o seu diagnóstico financeiro no final.",
-    options: [
-      { text: "Tenho uma noção, mas nada muito organizado", score: 2, emoji: "🙋‍♂️" },
-      { text: "Sim, está tudo anotado e bem claro para mim", score: 3, emoji: "😎" },
-      { text: "Sinceramente, não sei… só vou gastando e vejo depois no extrato", score: 1, emoji: "😅" },
-    ],
-  },
-  {
-    question:
-      'Quando o mês acaba, você tem a sensação de que o dinheiro simplesmente “sumiu”?',
-    description: "Selecione uma das opções:",
-    options: [
-      { text: "Sim, no fim do mês quase nunca sei para onde o dinheiro foi.", score: 1, emoji: "😔" },
-      { text: "Não, acompanho tudo e sei exatamente para onde cada gasto foi.", score: 3, emoji: "😏" },
-      { text: "Às vezes tenho essa sensação, mas no geral consigo me virar e fechar o mês.", score: 2, emoji: "🤷‍♂️" },
-    ],
-  },
-  {
-    question:
-      "Se você continuar fazendo exatamente o que faz hoje com seu dinheiro, como imagina que estará sua vida financeira daqui a 6 meses?",
-    description: "Escolha a opção que melhor descreve você:",
-    options: [
-      { text: "Provavelmente mais endividado(a) e frustrado(a)", score: 1, emoji: "😣" },
-      { text: "Do mesmo jeito de hoje, sem muita evolução", score: 2, emoji: "😐" },
-      { text: "Com controle e conseguindo guardar dinheiro todo mês", score: 3, emoji: "🤑" },
-    ],
-  },
-  {
-    question: "O que mais te impede de ter um bom controle financeiro hoje?",
-    description: "Responda com sinceridade.",
-    options: [
-      { text: "Falta de organização, começo e não consigo manter o controle", score: 1, emoji: "🙋‍♂️" },
-      { text: "Não tenho uma ferramenta simples para controlar meu dinheiro", score: 2, emoji: "🤷‍♂️" },
-      { text: "Esqueço de anotar os gastos no dia a dia", score: 1, emoji: "❌" },
-      { text: "Acho complicado mexer com planilhas e números", score: 1, emoji: "😅" },
-    ],
-  },
-  {
-    question:
-      "Se você tivesse uma planilha automática que mostrasse, em poucos cliques, para onde cada centavo do seu dinheiro está indo, você usaria?",
-    description: "Qual é a sua opinião?",
-    options: [
-      { text: "Com certeza, é exatamente o que eu preciso agora", score: 3, emoji: "✅" },
-      { text: "Talvez, se for bem simples de usar e não tomar muito tempo", score: 2, emoji: "🙋‍♂️" },
-      { text: "Não sei, nunca tentei controlar o dinheiro com planilha, mas tenho curiosidade", score: 2, emoji: "🤔" },
-    ],
-  },
-  {
-    question:
-      "Você gostaria de ter acesso a essa planilha ainda hoje para começar a organizar seu dinheiro?",
-    description: "",
-    options: [
-      { text: "Sim, quero acesso imediato para organizar meu dinheiro", score: 3, emoji: "✅" },
-      { text: "Sim, mas preciso de algo bem simples e fácil de usar", score: 2, emoji: "🙋‍♂️" },
-      { text: "Por enquanto não", score: 1, emoji: "😔" },
-    ],
-  },
+  { question: 'Você sabe quanto dinheiro entrou e quanto saiu da sua conta no último mês?', options: ['Tenho uma noção, mas nada muito organizado', 'Sim, está tudo anotado e bem claro para mim', 'Não sei… costumo olhar o extrato depois'], scores: [2, 3, 1] },
+  { question: 'Quando o mês acaba, você tem a sensação de que o dinheiro simplesmente “sumiu”?', options: ['Sim, quase nunca sei para onde o dinheiro foi', 'Não, acompanho os meus gastos', 'Às vezes, mas geralmente consigo fechar o mês'], scores: [1, 3, 2] },
+  { question: 'Pensando nos próximos 6 meses, como você se sente sobre a sua organização financeira?', options: ['Preocupado(a), preciso começar a me organizar', 'Acho que vai continuar parecida com hoje', 'Confiante, já tenho uma rotina de controle'], scores: [1, 2, 3] },
+  { question: 'O que mais dificulta controlar seu dinheiro hoje?', options: ['Começo a organizar, mas não consigo manter', 'Não tenho uma ferramenta simples', 'Esqueço de anotar os gastos no dia a dia', 'Acho complicado mexer com planilhas e números'], scores: [1, 2, 1, 1] },
+  { question: 'Você usaria uma planilha em que registra receitas e despesas e os cálculos são feitos automaticamente?', options: ['Sim, é o que eu preciso agora', 'Talvez, se for simples de usar', 'Nunca tentei, mas tenho curiosidade'], scores: [3, 2, 2] },
+  { question: 'Você gostaria de conhecer a planilha e ver como começar a organizar suas finanças?', options: ['Sim, quero conhecer', 'Sim, principalmente como usar no dia a dia', 'Quero entender melhor antes de decidir'], scores: [3, 2, 1] },
 ];
 
-/* =========================
-   2) OFERTAS (Kiwify links)
-   bullets agora aceitam:
-   - { type: "text", text: "..." }
-   - { type: "heading", text: "..." }  (negrito/caixa alta)
-========================= */
-
-const offers = [
-  {
-    id: "card1",
-    title: "Planilha Vida Sem Dívidas",
-    subtitle: "Acesso vitalício",
-    oldPrice: "R$97,00",
-    newPrice: "R$27,00",
-    url: "https://pay.kiwify.com.br/T2t4PBq",
-    image: "/card1.png",
-    bullets: [
-      { type: "text", text: "Acesso vitalício" },
-      { type: "text", text: "Atualização constante" },
-      { type: "text", text: "Vídeo aula ensinando a usar" },
-      { type: "text", text: "Sem mensalidade" },
-      { type: "text", text: "Personalize de acordo as suas necessidades" },
-      { type: "text", text: "Feita para iniciantes e experientes" },
-    ],
-    highlight: false,
-  },
-  {
-    id: "card2",
-    title: "Planilha Vida Sem Dívidas + Parcelado Nunca Mais",
-    subtitle: "Acesso vitalício",
-    oldPrice: "R$127,00",
-    newPrice: "R$47,00",
-    url: "https://pay.kiwify.com.br/KEpAvGm",
-    image: "/card2.png",
-    bullets: [
-      { type: "heading", text: "TUDO O QUE TEM NO ANTERIOR +" },
-      {
-        type: "text",
-        text:
-          "Acesso ao sistema Parcelado Nunca Mais: veja quanto do seu dinheiro já está comprometido antes de parcelar qualquer compra.",
-      },
-      {
-        type: "text",
-        text:
-          "Controle parcelas, valores mensais e saiba exatamente quando cada dívida termina.",
-      },
-      {
-        type: "text",
-        text:
-          "Simples, online e fácil de usar — ideal pra quem quer parar de se enrolar no cartão.",
-      },
-    ],
-    highlight: false,
-  },
-  {
-    id: "card3",
-    title: "Combo Reestruturação Financeira",
-    subtitle: "Acesso vitalício",
-    oldPrice: "R$497,00",
-    newPrice: "R$97,00",
-    url: "https://pay.kiwify.com.br/eSTSn8r",
-    image: "/card3.png",
-    bullets: [
-      { type: "heading", text: "TUDO O QUE TEM NOS DOIS ANTERIORES +" },
-      {
-        type: "text",
-        text:
-          "Suporte prioritário humanizado no whatsapp (pegamos na sua mão e te ajudamos até você ver as coisas acontecendo)",
-      },
-      {
-        type: "text",
-        text:
-          "Planilha Vida Sem Dívidas, criada para ajudar você a organizar suas finanças de forma simples, rápida e prática.",
-      },
-      {
-        type: "text",
-        text:
-          "ANTI-IMPULSO: antes de gastar, pergunte para a IA. Funciona direto pelo ChatGPT e te ajuda a decidir melhor com seu dinheiro.",
-      },
-      {
-        type: "text",
-        text:
-          "MÉTODO S.O.M: um sistema com direção clara para pessoas comuns saírem do caos e começarem a avançar de verdade.",
-      },
-      {
-        type: "text",
-        text:
-          "PARCELADO NUNCA MAIS: veja quanto do seu dinheiro já está comprometido antes de parcelar, controle parcelas e saiba quando termina.",
-      },
-    ],
-    highlight: true,
-  },
+const bonuses = [
+  { number: '01', title: 'Parcelado Nunca Mais', tag: 'MAIS CLAREZA NAS PARCELAS', text: 'Acompanhe valores, compromissos mensais e quando cada parcelamento termina. Veja o que já está comprometido antes de assumir uma nova parcela.', icon: 'card' },
+  { number: '02', title: 'Anti-Impulso', tag: 'UMA PAUSA ANTES DE COMPRAR', text: 'Um apoio pelo ChatGPT para refletir antes de gastar. Coloque a compra em perspectiva e pense nas suas prioridades antes de decidir.', icon: 'spark' },
+  { number: '03', title: 'Método S.O.M.', tag: 'DIREÇÃO PARA COMEÇAR', text: 'Um material de apoio para dar direção à sua organização financeira e ajudar você a transformar a intenção de começar em ação.', icon: 'steps' },
+];
+const faqs = [
+  ['Preciso entender de números ou de planilhas?', 'Você registra suas receitas e despesas nos campos da planilha. As fórmulas e os painéis já estão preparados. A oferta inclui uma videoaula de uso e suporte pelo WhatsApp para tirar dúvidas.'],
+  ['Funciona no Excel ou no Google Planilhas?', 'A versão entregue funciona no Google Planilhas. Você precisa de uma conta Google para acessar a sua cópia. Esta oferta não promete compatibilidade com o Excel.'],
+  ['Ela registra meus gastos sozinha pelo WhatsApp?', 'Não. Nesta oferta, você preenche as receitas e despesas na planilha, e ela faz os cálculos e organiza a visualização. O suporte pelo WhatsApp é para dúvidas e ajuda no uso. O aplicativo Phoenix, com registro por mensagem, é um produto separado.'],
+  ['Tenho pouco dinheiro. A planilha pode me ajudar?', 'Ela pode ajudar você a enxergar as receitas, despesas e compromissos que registrar. Não aumenta sua renda nem elimina dívidas sozinha: é uma ferramenta de organização para apoiar suas decisões.'],
+  ['A fatura do cartão não é suficiente?', 'A fatura mostra os gastos daquele cartão. Na planilha, você pode reunir também as receitas e outras despesas que registrar, como Pix, dinheiro e contas do mês, para acompanhar o conjunto.'],
+  ['O que está incluído nos R$24,90?', 'A Planilha Vida Sem Dívidas no Google Planilhas, a videoaula de uso, os bônus Parcelado Nunca Mais, Anti-Impulso e Método S.O.M., além do suporte pelo WhatsApp para dúvidas e ajuda com os materiais. Pagamento único, sem mensalidade nesta oferta.'],
+  ['Como recebo o acesso?', 'Após a confirmação do pagamento, as instruções de acesso são enviadas pelos canais informados no checkout. Siga as orientações para abrir sua cópia no Google Planilhas e acessar os materiais.'],
+  ['Como funciona o suporte e a garantia?', 'O suporte pelo WhatsApp ajuda com dúvidas sobre acesso, uso da planilha e materiais incluídos. Consultoria financeira individual é um serviço separado. Você tem 7 dias após a compra para solicitar o reembolso pelo canal indicado na confirmação do pedido.'],
 ];
 
-/* =========================
-   3) DEPOIMENTOS (JPG)
-========================= */
-
-const testimonials = [
-  {
-    text:
-      "Eu sempre perdia controle das pequenas despesas. Com a planilha, passei a acompanhar tudo e já estou conseguindo guardar uma reserva mensal!",
-    name: "Maria Silva",
-    role: "Diarista",
-    avatar: "/maria.jpg",
-  },
-  {
-    text:
-      "Simples de usar e muito prática. Consegui organizar minhas contas e criar um orçamento mensal que realmente funciona. Vale cada centavo!",
-    name: "Breno Silva",
-    role: "Auxiliar de T.I",
-    avatar: "/breno.jpg",
-  },
-  {
-    text:
-      "Achei que organização financeira fosse complicado até usar essa planilha. Intuitiva e com relatórios que me ajudam a decidir melhor!",
-    name: "Paulo B.",
-    role: "Repositor",
-    avatar: "/paulo.jpg",
-  },
-];
-
-/* =========================
-   4) CONTADOR (10 min)
-========================= */
-
-function useCountdown(startSeconds = 600) {
-  const [secondsLeft, setSecondsLeft] = useState(startSeconds);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setSecondsLeft((s) => (s > 0 ? s - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
-  const ss = String(secondsLeft % 60).padStart(2, "0");
-  return `${mm}:${ss}`;
+function Icon({ name = 'check', className = '' }) {
+  const paths = {
+    check: <path d="m5 12 4 4L19 6" />,
+    arrow: <><path d="M5 12h14m-6-6 6 6-6 6" /></>,
+    sheet: <><rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 8h6M9 12h6M9 16h3" /></>,
+    card: <><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M3 10h18M7 15h4" /></>,
+    spark: <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z" />,
+    steps: <><path d="M4 18h5v-5h5V8h6M16 4h4v4" /></>,
+    chat: <><path d="M21 11.5a8.5 8.5 0 0 1-12.5 7.4L3 21l2-5.5A8.5 8.5 0 1 1 21 11.5Z" /><path d="M8 10h8M8 14h5" /></>,
+    shield: <><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z" /><path d="m8 12 3 3 5-6" /></>,
+  };
+  return <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name] || paths.check}</svg>;
 }
 
-/* =========================
-   APP
-========================= */
+function Brand() {
+  return <a className="brand" href="/" aria-label="Vida Sem Dívidas, início"><span className="brand-icon"><Icon name="sheet" /></span><span>vida sem dívidas<span className="brand-sub">ORGANIZAÇÃO FINANCEIRA</span></span></a>;
+}
+
+function CheckoutButton({ children = 'Quero começar a organizar meu dinheiro', placement, className = '' }) {
+  const [notice, setNotice] = useState(false);
+  const checkoutUrl = import.meta.env.VITE_CHECKOUT_URL;
+  function checkout() {
+    if (!checkoutUrl) {
+      track('checkout_unavailable', { placement });
+      setNotice(true);
+      return;
+    }
+    let url;
+    try { url = new URL(checkoutUrl); } catch { setNotice(true); return; }
+    if (url.protocol !== 'https:') { setNotice(true); return; }
+    const allowed = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'utm_id', 'src', 'sck', 'fbclid', 'gclid', 'ttclid'];
+    const params = new URLSearchParams(window.location.search);
+    allowed.forEach(key => { if (params.has(key)) url.searchParams.set(key, params.get(key)); });
+    track('offer_click', { offerId: 'planilha-2490', value: 24.9, currency: 'BRL', placement });
+    window.location.assign(url.href);
+  }
+  return <div className={`checkout-control ${className}`}><button className="cta" onClick={checkout}>{children}<Icon name="arrow" /></button>{notice && <p className="checkout-notice" role="status">As vendas desta nova oferta ainda não foram abertas. Volte em breve para acessar a planilha por R$24,90.</p>}</div>;
+}
 
 export default function App() {
-  const [stage, setStage] = useState("hook"); // hook | quiz | offers
-  const [current, setCurrent] = useState(0);
-  const [totalScore, setTotalScore] = useState(0);
-
-  const maxScore = useMemo(() => questions.length * 3, []);
-  const progressPct = useMemo(
-    () => Math.round(((current + 1) / questions.length) * 100),
-    [current]
-  );
-
-  function start() {
-    utmifyTrack("quiz_start");
-    setStage("quiz");
-    setCurrent(0);
-    setTotalScore(0);
-  }
-
-  function answer(score) {
-    const nextTotal = totalScore + score;
-
-    setTotalScore((s) => s + score);
-
-    if (current + 1 < questions.length) {
-      setCurrent((c) => c + 1);
-    } else {
-      utmifyTrack("quiz_complete", { totalScore: nextTotal, maxScore });
-      setStage("offers");
+  const [stage, setStage] = useState(window.location.hash === '#oferta' ? 'offer' : 'hook');
+  const [answers, setAnswers] = useState([]);
+  const titleRef = useRef(null);
+  const answerLock = useRef(false);
+  const current = answers.length;
+  useEffect(() => {
+    document.title = 'Planilha Vida Sem Dívidas | Organize suas finanças';
+    track('landing_view', { version: 'oferta-unica-2490' });
+    function hashChanged() { if (window.location.hash === '#oferta') setStage('offer'); }
+    window.addEventListener('hashchange', hashChanged);
+    return () => window.removeEventListener('hashchange', hashChanged);
+  }, []);
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    titleRef.current?.focus({ preventScroll: true });
+    answerLock.current = false;
+  }, [stage, current]);
+  function start() { track('quiz_start'); setAnswers([]); setStage('quiz'); }
+  function answer(index) {
+    if (answerLock.current) return;
+    answerLock.current = true;
+    const next = [...answers, index];
+    track('quiz_answer', { question: current + 1, option: index + 1 });
+    setAnswers(next);
+    if (next.length === questions.length) {
+      track('quiz_complete', { totalScore: next.reduce((sum, value, i) => sum + questions[i].scores[value], 0), maxScore: 18 });
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#oferta`);
+      setStage('offer');
     }
   }
-
-  /* ===== TELA 1: ENTRADA com MOCKUP ===== */
-  if (stage === "hook") {
-    return (
-      <div style={styles.page}>
-        <div style={styles.card}>
-          <div style={styles.mockWrap}>
-            <img src="/mockup.png" alt="Mockup da planilha" style={styles.mockImg} />
-          </div>
-
-          <h1 style={styles.title}>Responda 6 perguntas rápidas 💰</h1>
-          <p style={styles.subtitle}>
-            Em menos de 1 minuto, descubra se o seu dinheiro está realmente sob controle
-            ou escapando da sua mão sem você perceber.
-          </p>
-
-          <div style={styles.badgeRow}>
-            <span style={styles.badge}>🕐 Leva apenas alguns segundos</span>
-          </div>
-
-          <button style={styles.primaryBtn} onClick={start}>
-            Iniciar diagnóstico financeiro
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  /* ===== QUIZ ===== */
-  if (stage === "quiz") {
-    const q = questions[current];
-
-    return (
-      <div style={styles.page}>
-        <div style={styles.card}>
-          <div style={styles.topRow}>
-            <span style={styles.stepPill}>
-              Pergunta {current + 1} de {questions.length}
-            </span>
-            <span style={styles.stepPct}>{progressPct}%</span>
-          </div>
-
-          <div style={styles.progressBar}>
-            <div style={{ ...styles.progressFill, width: `${progressPct}%` }} />
-          </div>
-
-          <h2 style={styles.qTitle}>{q.question}</h2>
-          {q.description && <p style={styles.qDesc}>{q.description}</p>}
-
-          <div style={{ marginTop: 6 }}>
-            {q.options.map((opt, idx) => (
-              <button
-                key={idx}
-                style={styles.optionBtn}
-                onClick={() => answer(opt.score)}
-              >
-                <span style={styles.optEmoji}>{opt.emoji}</span>
-                <span style={styles.optText}>{opt.text}</span>
-              </button>
-            ))}
-          </div>
-
-          <div style={styles.helpRow}>
-            <span style={styles.helpText}>Não existe certo ou errado — seja sincero.</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return <OffersPage totalScore={totalScore} maxScore={maxScore} />;
+  if (stage === 'offer') return <OfferPage answers={answers} />;
+  return <div className="quiz-page"><header className="shell quiz-header"><Brand /><span className="quiet">Um passo de cada vez.</span></header><main className="quiz-main">
+    {stage === 'hook' ? <section className="quiz-card hook-card"><div className="eyebrow"><span className="status-dot" /> UM COMEÇO MAIS SIMPLES</div><h1 ref={titleRef} tabIndex={-1}>Seu dinheiro merece<br /><em>um pouco mais de clareza.</em></h1><p>Responda 6 perguntas rápidas sobre a sua rotina financeira e conheça uma forma de começar a se organizar.</p><div className="hook-preview"><img src="/planilha.png" alt="Prévia da Planilha Vida Sem Dívidas com painel de receitas, despesas e orçamento" width="1000" height="750" fetchPriority="high" /></div><button className="cta" onClick={start}>Iniciar diagnóstico financeiro<Icon name="arrow" /></button><span className="quiz-note">6 perguntas · Sem informar renda ou dados bancários</span></section>
+    : <section className="quiz-card question-card"><div className="question-top"><span className="eyebrow">SUA ROTINA FINANCEIRA</span><span>{current + 1} <span className="muted">/ {questions.length}</span></span></div><div className="progress" role="progressbar" aria-label="Progresso do questionário" aria-valuemin={0} aria-valuemax={6} aria-valuenow={current}><span style={{width: `${current / questions.length * 100}%`}} /></div><h1 ref={titleRef} tabIndex={-1}>{questions[current].question}</h1><p className="question-description">Escolha o que mais se parece com você. Sem julgamento.</p><div className="options">{questions[current].options.map((option, index) => <button key={`${current}-${index}`} onClick={() => answer(index)}><span className="option-letter">{String.fromCharCode(65 + index)}</span><span>{option}</span><Icon name="arrow" /></button>)}</div><div className="question-bottom">{current > 0 ? <button className="back-button" onClick={() => { track('quiz_back', {question: current + 1}); setAnswers(answers.slice(0, -1)); }}>← Voltar</button> : <span />}<span>Não existe resposta certa ou errada.</span></div></section>}
+    </main><footer className="quiz-footer">Vida Sem Dívidas · Organização começa com o primeiro passo.</footer></div>;
 }
 
-/* =========================
-   PÁGINA FINAL (OFERTAS)
-========================= */
-
-function OffersPage({ totalScore, maxScore }) {
-  const time = useCountdown(10 * 60);
-
-  const perfil =
-    totalScore <= 8
-      ? "Seu dinheiro provavelmente está escapando sem você perceber 💸"
-      : totalScore <= 13
-      ? "Você até se vira, mas está perdendo dinheiro no descontrole invisível 👀"
-      : "Você já tem uma boa base — agora é manter consistência e otimizar 📌";
-
-  return (
-    <div style={styles.page}>
-      <div style={{ ...styles.card, padding: 18 }}>
-        <div style={offersStyles.timerWrap}>
-          <div style={offersStyles.timerText}>
-            GARANTA AGORA COM DESCONTO <span style={offersStyles.timer}>{time}</span>
-          </div>
-        </div>
-
-        <div style={{ textAlign: "center", marginTop: 8 }}>
-          <div style={offersStyles.headerTag}>ESCOLHA SUA MELHOR OPÇÃO</div>
-          <div style={offersStyles.headerTitle}>Seu diagnóstico está pronto ✅</div>
-          <div style={offersStyles.headerSub}>
-            {perfil}
-            <div style={{ marginTop: 6, color: "#6b7280", fontSize: 12 }}>
-              Pontuação: <strong>{totalScore}</strong> / {maxScore}
-            </div>
-          </div>
-        </div>
-
-        <div style={offersStyles.planilhaOnlyWrap}>
-          <img src="/planilha.png" alt="Planilha" style={offersStyles.planilhaOnlyImg} />
-        </div>
-
-        <div style={offersStyles.grid}>
-          {offers.map((o, idx) => (
-            <OfferCard key={idx} offer={o} />
-          ))}
-        </div>
-
-        <GarantiaSection />
-
-        <div style={{ marginTop: 18 }}>
-          <h3 style={offersStyles.h3}>RELATOS DE QUEM ADQUIRIU</h3>
-          {testimonials.map((t, i) => (
-            <Testimonial key={i} {...t} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
+function OfferPage({ answers }) {
+  const [zoom, setZoom] = useState(false);
+  const dialogRef = useRef(null);
+  useEffect(() => { track('offer_view', { offerId: 'planilha-2490', completedQuiz: answers.length === 6 }); }, [answers.length]);
+  useEffect(() => { if (zoom) dialogRef.current?.showModal(); else dialogRef.current?.close(); }, [zoom]);
+  const summary = answers.length === 6 ? (answers[0] === 1 && answers[1] === 1 ? 'Você já acompanha seus gastos. Uma visão organizada pode ajudar a manter essa rotina.' : 'Pelas suas respostas, ter uma visão mais organizada pode ser um bom próximo passo.') : 'Conheça uma ferramenta para começar a organizar suas receitas e despesas.';
+  return <div className="offer-page"><a className="skip-link" href="#conteudo">Ir para o conteúdo</a><header className="site-header"><div className="shell nav-row"><Brand /><a className="nav-cta" href="#pacote">Conhecer a oferta<Icon name="arrow" /></a></div></header><main id="conteudo">
+    <section className="hero shell"><div className="hero-copy"><div className="eyebrow"><span className="status-dot" /> SEU PRÓXIMO PASSO COMEÇA AQUI</div><h1>Seu dinheiro<br />mais claro.<br /><em>Sua vida mais leve.</em></h1><p className="hero-description">Entenda para onde seu dinheiro está indo e dê o primeiro passo para organizar suas finanças. Sem precisar montar uma planilha do zero.</p><div className="hero-price"><span>Planilha + 3 bônus + suporte</span><strong>R$24,90 <small>/ pagamento único</small></strong></div><CheckoutButton placement="hero" /><div className="trust-line"><span><Icon name="check" /> Google Planilhas</span><span><Icon name="shield" /> Garantia de 7 dias</span></div></div><div className="hero-visual"><div className="visual-glow" /><div className="visual-orbit" /><span className="visual-label">PLANILHA VIDA SEM DÍVIDAS</span><div className="product-frame"><div className="window-bar"><span /><span /><span /><small>Uma visão mais clara das suas finanças</small></div><img src="/planilha.png" alt="Imagem da planilha mostrando entradas, gastos, contas e painel de orçamento; valores ilustrativos" width="1000" height="750" fetchPriority="high" /></div><div className="visual-foot"><span className="tiny-cross">+</span><p>Receitas, despesas e orçamento.<br /><strong>Um lugar para enxergar o conjunto.</strong></p><span className="visual-index">01 / CLAREZA</span></div></div></section>
+    <div className="feature-strip"><div className="shell"><span><Icon name="sheet" /> Google Planilhas</span><span><Icon name="check" /> Pagamento único</span><span><Icon name="chat" /> Suporte no WhatsApp</span><span><Icon name="shield" /> 7 dias de garantia</span></div></div>
+    <section className="section shell intro"><div><span className="eyebrow">MAIS CLAREZA. MENOS ACHISMO.</span><h2>Olhar para suas finanças<br />pode começar <em>sem complicar.</em></h2></div><div className="intro-copy"><p className="personal-summary">{summary}</p><p>Se hoje você se orienta pela fatura, pelo extrato ou pela memória, pode ser difícil enxergar tudo junto. A planilha reúne as informações que você registra para ajudar a acompanhar o mês.</p><p className="subtle">Você não precisa resolver tudo hoje. Pode começar entendendo o que entra e o que sai.</p></div></section>
+    <section className="section shell demo-section" id="como-funciona"><div className="section-top"><div><span className="eyebrow">DO REGISTRO À VISÃO DO MÊS</span><h2>Você preenche.<br /><em>A planilha faz os cálculos.</em></h2></div><p>Uma ferramenta pronta no Google Planilhas.<br />Você registra as informações; os painéis ajudam a visualizar.</p></div><div className="demo-grid"><button className="demo-image" onClick={() => setZoom(true)} aria-label="Ampliar imagem da planilha"><img src="/planilha.png" alt="Prévia do painel da planilha, com receitas, gastos, contas e gráficos de orçamento" width="1000" height="750" loading="lazy" /><span>Ampliar prévia <span aria-hidden="true">↗</span></span></button><div className="steps"><article><span>01</span><div><h3>Registre o que entra e sai</h3><p>Preencha suas receitas e despesas nos campos da planilha.</p></div></article><article><span>02</span><div><h3>Enxergue o seu mês</h3><p>Acompanhe as informações organizadas nos cálculos e painéis.</p></div></article><article><span>03</span><div><h3>Decida com mais informação</h3><p>Use essa visão para pensar nas suas prioridades e compromissos.</p></div></article><div className="help-mini"><Icon name="chat" /><p>Dúvida para começar?<br /><strong>Você tem videoaula e suporte no WhatsApp.</strong></p></div></div></div><p className="image-caption">Prévia do produto com valores ilustrativos. O preenchimento desta oferta é manual, com cálculos automáticos.</p></section>
+    <section className="bonuses-section"><div className="shell section"><span className="eyebrow">JUNTOS COM A SUA PLANILHA</span><h2>Três apoios para<br /><em>o seu próximo passo.</em></h2><p className="section-lead">Os três bônus estão incluídos nos R$24,90.</p><div className="bonus-grid">{bonuses.map(b => <article className="bonus-card" key={b.number}><div className="bonus-top"><Icon name={b.icon} /><span>BÔNUS {b.number}</span></div><span className="bonus-tag">{b.tag}</span><h3>{b.title}</h3><p>{b.text}</p><div className="included"><Icon name="check" /> Incluído na oferta</div></article>)}</div><div className="support-card"><span className="support-icon"><Icon name="chat" /></span><div><span className="eyebrow">E VOCÊ TEM COM QUEM CONTAR</span><h3>Suporte de verdade, pelo WhatsApp.</h3><p>Ajuda com acesso, uso da planilha e dúvidas sobre os materiais. Para você dar o primeiro passo com orientação.</p></div><span className="support-label">INCLUÍDO</span></div></div></section>
+    <section className="section shell testimonials"><div className="section-top"><div><span className="eyebrow">MENSAGENS REAIS DE CLIENTES</span><h2>Quando surge uma dúvida,<br /><em>o atendimento faz diferença.</em></h2></div><p>Trechos de conversas de atendimento<br />enviadas pelos próprios clientes.</p></div><div className="quote-grid"><figure><span className="quote-mark">“</span><blockquote>Suporte muito bom de vcs</blockquote><figcaption>Mensagem recebida no WhatsApp<span>Sobre o atendimento</span></figcaption></figure><figure><span className="quote-mark">“</span><blockquote>Obrigada pelo atendimento<br />Excelente!</blockquote><figcaption>Mensagem recebida no WhatsApp<span>Sobre o atendimento</span></figcaption></figure><figure><span className="quote-mark">“</span><blockquote>Maravilha..deu certo, muito obrigada 🤝</blockquote><figcaption>Mensagem recebida no WhatsApp<span>Após ajuda no uso</span></figcaption></figure></div><p className="image-caption">Relatos sobre suporte e uso. Não representam promessa de economia ou de quitação de dívidas.</p></section>
+    <section className="section shell package-section" id="pacote"><div className="package-story"><span className="eyebrow">UM PASSO POSSÍVEL, HOJE</span><h2>Comece pelo que<br />você pode enxergar.<br /><em>O seu dinheiro.</em></h2><p>Não precisa ser perfeito. Ter um lugar para registrar e acompanhar já é uma forma de começar.</p><div className="guarantee"><span><Icon name="shield" /></span><div><h3>7 dias para experimentar</h3><p>Se a ferramenta não fizer sentido para você, solicite o reembolso dentro de 7 dias após a compra.</p></div></div></div><div className="package-card"><span className="eyebrow">SUA OFERTA COMPLETA</span><h3>Planilha Vida Sem Dívidas</h3><p>Organização financeira no Google Planilhas.</p><ul>{['Planilha financeira pronta para preencher', 'Videoaula ensinando a usar', 'Bônus Parcelado Nunca Mais', 'Bônus Anti-Impulso', 'Bônus Método S.O.M.', 'Suporte pelo WhatsApp para dúvidas'].map(item => <li key={item}><Icon name="check" />{item}</li>)}</ul><div className="package-price"><span>Tudo incluído por</span><strong><small>R$</small>24<span>,90</span></strong><p>Pagamento único · Sem mensalidade</p></div><CheckoutButton placement="package" /><span className="package-footnote"><Icon name="shield" /> Garantia de 7 dias após a compra</span></div></section>
+    <section className="section shell faq-section"><div><span className="eyebrow">ANTES DE COMEÇAR</span><h2>Suas dúvidas.<br /><em>Respostas claras.</em></h2></div><div className="faq-list">{faqs.map(([q,a]) => <details key={q} onToggle={event => {if (event.currentTarget.open) track('faq_open', {question: q});}}><summary>{q}<span aria-hidden="true">+</span></summary><p>{a}</p></details>)}</div></section>
+    <section className="final-cta shell"><span className="eyebrow">CLAREZA PARA DAR O PRIMEIRO PASSO</span><h2>Seu próximo mês pode começar<br /><em>com mais organização.</em></h2><p>Planilha + 3 bônus + suporte. R$24,90, pagamento único.</p><CheckoutButton placement="final" /></section>
+    </main><footer className="site-footer shell"><Brand /><p>Ferramenta de organização financeira. Os resultados dependem do preenchimento e das decisões de cada pessoa.</p><span>© {new Date().getFullYear()} Vida Sem Dívidas</span></footer><div className="mobile-purchase"><div><span>Oferta completa</span><strong>R$24,90 <small>único</small></strong></div><a href="#pacote">Ver oferta<Icon name="arrow" /></a></div><dialog className="preview-dialog" ref={dialogRef} onClose={() => setZoom(false)} onClick={event => { if (event.target === event.currentTarget) setZoom(false); }}><button className="dialog-close" onClick={() => setZoom(false)} aria-label="Fechar prévia">Fechar ×</button><img src="/planilha.png" alt="Imagem ampliada da planilha financeira. Valores ilustrativos." width="1000" height="750" /><p>Prévia do produto · Google Planilhas</p></dialog></div>;
 }
-
-function OfferCard({ offer }) {
-  const cardStyle = offer.highlight
-    ? { ...offersStyles.card, ...offersStyles.cardHighlight }
-    : offersStyles.card;
-
-  return (
-    <div style={cardStyle}>
-      {offer.highlight && <div style={offersStyles.popular}>MAIS POPULAR</div>}
-
-      <div style={offersStyles.cardTitle}>{offer.title}</div>
-      <div style={offersStyles.cardSubtitle}>{offer.subtitle}</div>
-
-      <div style={offersStyles.cardImageWrap}>
-        <img src={offer.image} alt={offer.title} style={offersStyles.cardImage} />
-      </div>
-
-      <div style={offersStyles.priceBox}>
-        <div style={offersStyles.oldPrice}>De: {offer.oldPrice}</div>
-        <div style={offersStyles.newPrice}>Por: {offer.newPrice}</div>
-      </div>
-
-      {offer.bullets?.length > 0 && (
-        <ul style={offersStyles.bullets}>
-          {offer.bullets.map((b, i) => {
-            if (b.type === "heading") {
-              return (
-                <li key={i} style={offersStyles.bulletHeading}>
-                  <strong>{b.text}</strong>
-                </li>
-              );
-            }
-            return (
-              <li key={i} style={offersStyles.bulletItem}>
-                ✅ {b.text}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      <button
-        style={offersStyles.buyBtn}
-        onClick={() => {
-          utmifyTrack("offer_click", { offerId: offer.id, offerTitle: offer.title });
-
-          const currentParams = new URLSearchParams(window.location.search);
-          const paramsString = currentParams.toString();
-
-          let finalUrl = offer.url;
-
-          if (paramsString) {
-            finalUrl += (offer.url.includes("?") ? "&" : "?") + paramsString;
-          }
-
-          window.location.href = finalUrl;
-        }}
-      >
-        Quero esse
-      </button>
-    </div>
-  );
-}
-
-function GarantiaSection() {
-  return (
-    <div style={garantiaStyles.wrap}>
-      <div style={garantiaStyles.tag}>GARANTIA TOTAL</div>
-
-      <div style={garantiaStyles.title}>
-        Experimente por <span style={garantiaStyles.titleStrong}>7 dias</span> — Sem risco ✅
-      </div>
-
-      <div style={garantiaStyles.text}>
-        Eu confio tanto que essa planilha vai te dar clareza e controle do seu dinheiro,
-        que vou te dar <strong>7 dias</strong> pra testar sem medo.
-      </div>
-
-      <div style={garantiaStyles.text}>
-        Se dentro de 7 dias você achar que não vale a pena, é só pedir e você recebe{" "}
-        <strong>100% do seu dinheiro</strong> de volta.
-      </div>
-
-      <div style={garantiaStyles.text}>
-        Sem enrolação. Sem burocracia. O risco é meu. Você só testa.
-      </div>
-
-      <div style={garantiaStyles.text}>
-        Ou você organiza sua vida financeira... ou eu devolvo o seu dinheiro.
-      </div>
-
-      <div style={garantiaStyles.sealWrap}>
-        <img
-          src="/garantia-7dias.png"
-          alt="Garantia 7 dias"
-          style={garantiaStyles.sealImg}
-        />
-      </div>
-    </div>
-  );
-}
-
-function Testimonial({ text, name, role, avatar }) {
-  return (
-    <div style={offersStyles.testimonial}>
-      <div style={offersStyles.testHeader}>
-        <img src={avatar} alt={name} style={offersStyles.avatar} />
-        <div>
-          <div style={offersStyles.testName}>{name}</div>
-          <div style={offersStyles.testRole}>{role}</div>
-        </div>
-      </div>
-
-      <div style={{ marginBottom: 6, marginTop: 10 }}>{"⭐".repeat(5)}</div>
-      <div style={{ fontSize: 14, lineHeight: 1.45, color: "#111827" }}>{text}</div>
-    </div>
-  );
-}
-
-/* =========================
-   ESTILOS
-========================= */
-
-const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "linear-gradient(135deg, #0f172a, #1e293b)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontFamily: "Arial",
-    padding: 16,
-  },
-  card: {
-    background: "#ffffff",
-    borderRadius: 20,
-    width: "100%",
-    maxWidth: 980,
-    textAlign: "center",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.22)",
-    padding: "26px 22px",
-  },
-  mockWrap: {
-    width: "100%",
-    maxWidth: 520,
-    margin: "0 auto 14px auto",
-    borderRadius: 16,
-    overflow: "hidden",
-    background: "#0b1220",
-    padding: 10,
-    height: 240,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mockImg: { width: "100%", height: "100%", objectFit: "contain", display: "block" },
-
-  title: { fontSize: 22, marginBottom: 10, color: "#0f172a" },
-  subtitle: { fontSize: 14, color: "#475569", marginBottom: 14, lineHeight: 1.45 },
-  badgeRow: { display: "flex", justifyContent: "center", marginBottom: 14 },
-  badge: {
-    fontSize: 12,
-    fontWeight: 700,
-    background: "#eef2ff",
-    color: "#3730a3",
-    padding: "8px 12px",
-    borderRadius: 999,
-  },
-  primaryBtn: {
-    width: "100%",
-    padding: 15,
-    borderRadius: 12,
-    border: "none",
-    background: "#16a34a",
-    color: "white",
-    fontSize: 16,
-    fontWeight: 800,
-    cursor: "pointer",
-  },
-
-  topRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  stepPill: {
-    fontSize: 12,
-    fontWeight: 800,
-    background: "#f1f5f9",
-    color: "#0f172a",
-    padding: "7px 10px",
-    borderRadius: 999,
-  },
-  stepPct: { fontSize: 12, fontWeight: 800, color: "#16a34a" },
-  progressBar: { width: "100%", height: 8, background: "#e2e8f0", borderRadius: 10, overflow: "hidden", marginBottom: 18 },
-  progressFill: { height: "100%", background: "#16a34a", transition: "width 0.25s ease" },
-
-  qTitle: { fontSize: 17, marginBottom: 10, color: "#0f172a", lineHeight: 1.35 },
-  qDesc: { fontSize: 13, color: "#64748b", marginBottom: 12, lineHeight: 1.45 },
-
-  optionBtn: {
-    width: "100%",
-    padding: 14,
-    marginTop: 10,
-    borderRadius: 14,
-    border: "1px solid #e5e7eb",
-    background: "#f8fafc",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "flex-start",
-    gap: 10,
-    textAlign: "left",
-  },
-  optEmoji: { width: 22, display: "inline-flex", justifyContent: "center" },
-  optText: { fontSize: 14, color: "#0f172a", lineHeight: 1.35 },
-  helpRow: { marginTop: 14, textAlign: "center" },
-  helpText: { fontSize: 12, color: "#94a3b8" },
-};
-
-const offersStyles = {
-  timerWrap: { width: "100%", display: "flex", justifyContent: "center", marginBottom: 12 },
-  timerText: {
-    background: "#111827",
-    color: "white",
-    padding: "10px 14px",
-    borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 900,
-    letterSpacing: 0.3,
-  },
-  timer: { marginLeft: 8, padding: "4px 8px", borderRadius: 999, background: "#16a34a", color: "white", fontWeight: 900 },
-
-  headerTag: {
-    display: "inline-block",
-    padding: "6px 12px",
-    borderRadius: 999,
-    background: "#111827",
-    color: "white",
-    fontSize: 12,
-    fontWeight: 900,
-    marginBottom: 10,
-  },
-  headerTitle: { fontSize: 18, fontWeight: 900, color: "#0f172a" },
-  headerSub: { marginTop: 8, fontSize: 13, color: "#334155", lineHeight: 1.45 },
-
-  planilhaOnlyWrap: {
-    width: "100%",
-    maxWidth: 720,
-    margin: "14px auto 0 auto",
-    borderRadius: 18,
-    overflow: "hidden",
-    background: "transparent",
-  },
-  planilhaOnlyImg: { width: "100%", height: "auto", display: "block", borderRadius: 18 },
-
-  grid: { marginTop: 18, display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", alignItems: "start" },
-
-  card: {
-    position: "relative",
-    border: "1px solid #e5e7eb",
-    borderRadius: 18,
-    padding: 16,
-    textAlign: "left",
-    background: "#ffffff",
-    boxShadow: "0 10px 24px rgba(0,0,0,0.06)",
-    display: "flex",
-    flexDirection: "column",
-  },
-  cardHighlight: { border: "2px solid #7c3aed", boxShadow: "0 14px 30px rgba(124,58,237,0.18)" },
-  popular: {
-    position: "absolute",
-    top: -10,
-    left: "50%",
-    transform: "translateX(-50%)",
-    background: "#7c3aed",
-    color: "white",
-    fontWeight: 900,
-    fontSize: 12,
-    padding: "6px 10px",
-    borderRadius: 999,
-  },
-
-  cardTitle: { fontSize: 16, fontWeight: 900, color: "#0f172a" },
-  cardSubtitle: { fontSize: 12, color: "#64748b", marginTop: 4 },
-
-  cardImageWrap: {
-    width: "100%",
-    marginTop: 10,
-    borderRadius: 14,
-    overflow: "hidden",
-    background: "#0b1220",
-    aspectRatio: "9 / 16",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardImage: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
-
-  priceBox: { marginTop: 12, borderRadius: 14, padding: 12, background: "#f8fafc", border: "1px solid #e5e7eb" },
-  oldPrice: { fontSize: 12, color: "#6b7280", textDecoration: "line-through" },
-  newPrice: { marginTop: 6, fontSize: 20, fontWeight: 900, color: "#0f172a" },
-
-  bullets: { listStyle: "none", padding: 0, margin: "12px 0 0 0" },
-  bulletItem: { fontSize: 12, color: "#334155", marginTop: 8, lineHeight: 1.35, whiteSpace: "normal", wordBreak: "break-word" },
-  bulletHeading: {
-    marginTop: 10,
-    fontSize: 12,
-    color: "#111827",
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
-    background: "#f3f4f6",
-    border: "1px solid #e5e7eb",
-    padding: "8px 10px",
-    borderRadius: 12,
-    lineHeight: 1.2,
-  },
-
-  buyBtn: {
-    width: "100%",
-    padding: 14,
-    borderRadius: 12,
-    border: "none",
-    background: "#16a34a",
-    color: "white",
-    fontSize: 15,
-    fontWeight: 900,
-    cursor: "pointer",
-    marginTop: "auto",
-  },
-
-  h3: { fontSize: 13, letterSpacing: 0.6, margin: "0 0 10px 0", textAlign: "center" },
-
-  testimonial: { border: "1px solid #e5e7eb", background: "#ffffff", borderRadius: 14, padding: 14, marginTop: 10, textAlign: "left" },
-  testHeader: { display: "flex", alignItems: "center", gap: 10 },
-  avatar: { width: 44, height: 44, borderRadius: "50%", objectFit: "cover", border: "1px solid #e5e7eb" },
-  testName: { fontWeight: 900, color: "#111827", fontSize: 14, lineHeight: 1.2 },
-  testRole: { color: "#64748b", fontSize: 12, marginTop: 2 },
-};
-
-const garantiaStyles = {
-  wrap: {
-    marginTop: 18,
-    paddingTop: 8,
-    textAlign: "center",
-  },
-  tag: {
-    display: "inline-block",
-    background: "#7c3aed",
-    color: "#ffffff",
-    fontWeight: 900,
-    fontSize: 11,
-    padding: "6px 10px",
-    borderRadius: 999,
-    letterSpacing: 0.4,
-    marginBottom: 10,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: 900,
-    color: "#0f172a",
-    marginBottom: 10,
-  },
-  titleStrong: {
-    color: "#0f172a",
-    textDecoration: "underline",
-    textUnderlineOffset: 3,
-  },
-  text: {
-    fontSize: 12,
-    color: "#334155",
-    lineHeight: 1.5,
-    margin: "6px auto",
-    maxWidth: 720,
-  },
-  sealWrap: {
-    width: "100%",
-    display: "flex",
-    justifyContent: "center",
-    marginTop: 12,
-  },
-  sealImg: {
-    width: "100%",
-    maxWidth: 280,
-    height: "auto",
-    display: "block",
-  },
-};
