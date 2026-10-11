@@ -20,7 +20,7 @@ function safePageLocation() {
   [...url.searchParams.keys()].forEach(key => { if (!keep.includes(key)) url.searchParams.delete(key); });
   return url.href;
 }
-function sendAnalytics(event, data) {
+function sendAnalytics(event, data, onSent) {
   if (!analyticsAllowed || !analyticsReady || !publicPage) return;
   const safe = { funnel_version:'vsd-2026-10', traffic_type:isReview ? 'internal' : 'external' };
   // Only behavioral metadata: never send answers, financial scores or contact details.
@@ -28,7 +28,7 @@ function sendAnalytics(event, data) {
     if (typeof data[key] === 'number' || typeof data[key] === 'boolean' || typeof data[key] === 'string') safe[key] = data[key];
   });
   if (isReview) console.debug('[VSD analytics]',event,safe);
-  window.gtag('event', event, {...safe, page_location:safePageLocation(), transport_type:'beacon', ...(isReview ? {debug_mode:true} : {})});
+  window.gtag('event', event, {...safe, page_location:safePageLocation(), transport_type:'beacon', ...(onSent ? {event_callback:onSent,event_timeout:400} : {}), ...(isReview ? {debug_mode:true} : {})});
   window.clarity?.('event', event);
   if (data.question) window.clarity?.('set','quiz_step',String(data.question));
 }
@@ -64,7 +64,7 @@ function enableAnalytics() {
   }
   pendingEvents.splice(0).forEach(item => sendAnalytics(item.event,item.data));
 }
-function track(event, data = {}, once = false) {
+function track(event, data = {}, once = false, onSent) {
   if (!publicPage) return;
   const key = event + ':' + (data.question || data.section || data.scroll_percent || '');
   if (once && seenEvents.has(key)) return;
@@ -72,7 +72,7 @@ function track(event, data = {}, once = false) {
   try {
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({event,...data});
-    if (analyticsAllowed) sendAnalytics(event,data);
+    if (analyticsAllowed) sendAnalytics(event,data,onSent);
     else if (readConsent() !== 'denied' && pendingEvents.length < 100) pendingEvents.push({event,data});
   } catch { /* Tracking must never block the quiz or checkout. */ }
 }
@@ -140,8 +140,16 @@ function CheckoutButton({ placement, children = 'QUERO MEU SISTEMA AGORA' }) {
     const params = new URLSearchParams(window.location.search);
     ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','utm_id','src','sck','fbclid','gclid','ttclid'].forEach(key => { if (params.has(key)) url.searchParams.set(key, params.get(key)); });
     track('offer_click', {placement});
-    track('checkout_click', {placement});
-    window.location.assign(url.href);
+    if (analyticsAllowed && analyticsReady) {
+      let navigating = false;
+      const go = () => { if (!navigating) { navigating = true; window.location.assign(url.href); } };
+      // Let GA dispatch the final event, with a hard fallback so analytics never blocks checkout.
+      track('checkout_click', {placement}, false, go);
+      window.setTimeout(go,500);
+    } else {
+      track('checkout_click', {placement});
+      window.location.assign(url.href);
+    }
   }
   return <div className="buy-control"><button className="big-button" onClick={checkout}>{children}<Arrow /></button>{notice && <p className="checkout-notice" role="status">As vendas da nova oferta ainda não abriram. Volte em breve pra acessar por R$24,90.</p>}</div>;
 }
