@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 
 
 const GA_ID = 'G-TEJFFGGVNM';
-const CLARITY_ID = ''; // Enable after the owner accepts Clarity terms.
-const consentKey = 'vsd-analytics-consent-v1';
+const CLARITY_ID = 'yw5b5hu1hy';
+const consentKey = 'vsd-analytics-consent-v2';
 const seenEvents = new Set();
 const pendingEvents = [];
 let analyticsReady = false;
@@ -101,7 +101,7 @@ function AnalyticsPrivacy() {
     <button onClick={()=>setOpen(!open)} style={{...buttonStyle,position:'fixed',bottom:8,left:8,zIndex:90,fontSize:11,padding:'5px 8px'}}>Privacidade</button>
     {(!choice || open) && <div role="region" aria-label="Medição de navegação" style={{position:'fixed',bottom:42,left:12,right:12,maxWidth:460,zIndex:100,background:'#171717',color:'#fff',padding:16,border:'1px solid #777',borderRadius:10,boxShadow:'0 6px 30px #0008'}}>
       <strong>Podemos entender sua navegação?</strong>
-      <p style={{margin:'8px 0'}}>Com sua permissão, usamos Google Analytics para medir etapas, cliques e rolagens nesta página. Não enviamos suas respostas financeiras, e-mail ou senha para essas ferramentas. A área de membros fica fora dessa medição.</p>
+      <p style={{margin:'8px 0'}}>Com sua permissão, usamos Google Analytics e Microsoft Clarity para medir etapas, cliques e rolagens e gravar a navegação nesta página, com conteúdo sensível oculto. Não enviamos suas respostas financeiras, e-mail ou senha para essas ferramentas. A área de membros fica fora dessa medição.</p>
       <p style={{margin:'8px 0'}}>Você pode recusar e continuar normalmente, ou mudar sua escolha em “Privacidade”.</p>
       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button style={buttonStyle} onClick={()=>choose('denied')}>Continuar sem aceitar</button><button style={{...buttonStyle,background:'#ffe34d',color:'#111'}} onClick={()=>choose('granted')}>Aceitar medição</button></div>
     </div>}
