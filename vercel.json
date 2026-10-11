@@ -1,0 +1,35 @@
+{
+  "rewrites": [
+    {
+      "source": "/neon-auth/:path*",
+      "destination": "/api/auth?path=:path*"
+    },
+    {
+      "source": "/membros",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/membros/previa",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        }
+      ]
+    }
+  ]
+}
