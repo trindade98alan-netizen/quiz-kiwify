@@ -30,11 +30,11 @@ function Icon({name,size=20}) {
 function Brand() { return <a href="/membros" className="m-brand" aria-label="Sistema Vida Sem Dívidas, início"><span className="m-brand-mark">V<span>✓</span></span><span>VIDA SEM DÍVIDAS<small>SEU ESPAÇO. SEU RECOMEÇO.</small></span></a>; }
 function Support({children='Preciso de ajuda',className=''}) {return <a className={`m-support ${className}`} href={supportUrl} target="_blank" rel="noopener noreferrer"><Icon name="help"/>{children}</a>;}
 
-function Login({onSuccess}) {
+function Login({onSuccess,initialError}) {
   const resetToken = new URLSearchParams(window.location.search).get('token');
-  const [mode,setMode]=useState(resetToken?'reset':'login');
+  const [mode,setMode]=useState(()=>{if(resetToken)return 'reset';try{return localStorage.getItem('vsd-member-returning')==='true'?'login':'signup';}catch{return 'signup';}});
   const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [confirm,setConfirm]=useState('');
-  const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [notice,setNotice]=useState('');
+  const [busy,setBusy]=useState(false); const [error,setError]=useState(initialError||''); const [notice,setNotice]=useState('');
   const isNew=mode==='signup'; const isReset=mode==='reset'; const isForgot=mode==='forgot';
   const changeMode=value=>{setMode(value);setError('');setNotice('');setPassword('');setConfirm('');};
   async function submit(e) {
@@ -53,10 +53,11 @@ function Login({onSuccess}) {
       } else if(isNew) {
         result=await authClient.signUp.email({email:address,password,name:address.split('@')[0],callbackURL:window.location.origin+'/membros'});
       } else {
-        result=await authClient.signIn.email({email:address,password,callbackURL:window.location.origin+'/membros'});
+        result=await authClient.signIn.email({email:address,password});
       }
       if(result.error) {
         if(result.error.code==='EMAIL_NOT_VERIFIED')throw new Error('Abra o link de confirmação enviado para seu e-mail antes de entrar. Confira também o spam.');
+        if(isNew&&['USER_ALREADY_EXISTS','USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL','EMAIL_ALREADY_EXISTS'].includes(result.error.code)){changeMode('login');throw new Error('Você já tem uma senha. Entre com o e-mail da compra e a senha que criou. Se não lembrar, use “Esqueci minha senha”.');}
         throw new Error(isForgot||isReset?'Não foi possível concluir. Tente novamente ou fale com o suporte.':'Confira seu e-mail e sua senha. Se este é seu primeiro acesso, clique em “Criar minha senha”.');
       }
       setPassword('');setConfirm('');
@@ -64,10 +65,12 @@ function Login({onSuccess}) {
       if(isReset){window.history.replaceState(null,'','/membros');setMode('login');setNotice('Senha atualizada. Agora entre com seu e-mail e a nova senha.');return;}
       if(isNew&&config.requireVerified!==false){setMode('login');setNotice('Confira seu e-mail e abra o link de confirmação. Depois, entre com a senha que você acabou de criar.');return;}
       if(isNew){
-        const login=await authClient.signIn.email({email:address,password,callbackURL:window.location.origin+'/membros'});
+        const login=await authClient.signIn.email({email:address,password});
         if(login.error){setMode('login');throw new Error('Sua conta foi criada. Entre com o e-mail da compra e a senha que você escolheu.');}
       }
-      onSuccess(await api('sessao'));
+      const session=await api('sessao');
+      try{localStorage.setItem('vsd-member-returning','true');}catch{/* Device preference is optional. */}
+      onSuccess(session);
     } catch(err){setError(err.message);} finally {setBusy(false);}
   }
   const title=isNew?'Crie sua senha.':isReset?'Sua nova senha.':isForgot?'Vamos recuperar?':'Vamos começar?';
@@ -100,9 +103,9 @@ function Library({session,onLogout}) {
 }
 export default function Members() {
   const [state,setState]=useState(preview?{status:'ready',session:{email:'alan@exemplo.com',completed:[]}}:{status:'loading'});
-  useEffect(()=>{document.title='Sua área de membros | Sistema Vida Sem Dívidas';if(preview)return;let alive=true;api('sessao').then(data=>{if(alive)setState({status:'ready',session:data});}).catch(()=>{if(alive)setState({status:'login'});});return()=>{alive=false;};},[]);
+  useEffect(()=>{document.title='Sua área de membros | Sistema Vida Sem Dívidas';if(preview)return;let alive=true;api('sessao').then(data=>{if(alive)setState({status:'ready',session:data});}).catch(error=>{if(alive)setState({status:'login',error:error.status===401?null:error.message});});return()=>{alive=false;};},[]);
   async function logout(){if(preview){window.location.assign('/membros');return;}try{const result=await authClient.signOut();if(result.error)throw result.error;setState({status:'login'});}catch{setState(s=>({...s,error:'Não foi possível sair agora. Tente novamente.'}));}}
   if(state.status==='loading')return <div className="m-loading"><Brand/><div className="m-spinner"/><p>Preparando seu espaço…</p></div>;
   if(state.status==='ready')return <><Library session={state.session} onLogout={logout}/>{state.error&&<p className="m-global-error" role="alert">{state.error}</p>}</>;
-  return <Login onSuccess={session=>setState({status:'ready',session})}/>;
+  return <Login initialError={state.error} onSuccess={session=>setState({status:'ready',session})}/>;
 }
