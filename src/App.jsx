@@ -96,15 +96,17 @@ function AnalyticsPrivacy() {
       clarityStopped = analyticsReady;
     }
   }
-  const buttonStyle = {background:'#222',color:'#fff',border:'1px solid #777',padding:'9px 12px',borderRadius:6,font:'inherit',cursor:'pointer'};
-  return <aside aria-label="Preferências de privacidade" style={{fontFamily:'Arial,sans-serif',fontSize:13,lineHeight:1.45}}>
-    <button onClick={()=>setOpen(!open)} style={{...buttonStyle,position:'fixed',bottom:8,left:8,zIndex:90,fontSize:11,padding:'5px 8px'}}>Privacidade</button>
-    {(!choice || open) && <div role="region" aria-label="Medição de navegação" style={{position:'fixed',bottom:42,left:12,right:12,maxWidth:460,zIndex:100,background:'#171717',color:'#fff',padding:16,border:'1px solid #777',borderRadius:10,boxShadow:'0 6px 30px #0008'}}>
-      <strong>Podemos entender sua navegação?</strong>
-      <p style={{margin:'8px 0'}}>Com sua permissão, usamos Google Analytics e Microsoft Clarity para medir etapas, cliques e rolagens e gravar a navegação nesta página, com conteúdo sensível oculto. Não enviamos suas respostas financeiras, e-mail ou senha para essas ferramentas. A área de membros fica fora dessa medição.</p>
-      <p style={{margin:'8px 0'}}>Você pode recusar e continuar normalmente, ou mudar sua escolha em “Privacidade”.</p>
-      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button style={buttonStyle} onClick={()=>choose('denied')}>Continuar sem aceitar</button><button style={{...buttonStyle,background:'#ffe34d',color:'#111'}} onClick={()=>choose('granted')}>Aceitar medição</button></div>
+  const buttonStyle = {background:'transparent',color:'#ccc',border:'1px solid #555',padding:'7px 11px',borderRadius:5,font:'inherit',cursor:'pointer'};
+  return <aside aria-label="Preferências de privacidade" style={{fontFamily:'Arial,sans-serif',fontSize:12,lineHeight:1.5,color:'#aaa',maxWidth:760,margin:'0 auto',padding:'12px 20px 20px',textAlign:'center'}}>
+    {(!choice || open) && <div role="region" aria-label="Medição de navegação">
+      <p style={{margin:'0 0 8px'}}>Podemos usar cookies de análise e gravar a navegação para melhorar esta página?</p>
+      {open && <p style={{margin:'8px 0'}}>Com sua permissão, usamos Google Analytics e Microsoft Clarity para medir etapas, cliques e rolagens e gravar a navegação, com conteúdo sensível oculto. Não enviamos suas respostas financeiras, e-mail ou senha como dados dos eventos. A área de membros fica fora dessa medição. Você pode recusar e continuar normalmente, ou mudar sua escolha aqui.</p>}
+      <div style={{display:'flex',justifyContent:'center',gap:8,flexWrap:'wrap'}}>
+        <button style={buttonStyle} onClick={()=>choose('denied')}>Não aceitar</button>
+        <button style={buttonStyle} onClick={()=>choose('granted')}>Aceitar análise</button>
+      </div>
     </div>}
+    <button aria-expanded={open} onClick={()=>setOpen(!open)} style={{...buttonStyle,border:0,padding:'6px 8px',fontSize:11,textDecoration:'underline',marginTop:4}}>{open ? 'Fechar detalhes' : 'Privacidade e cookies'}</button>
   </aside>;
 }
 
