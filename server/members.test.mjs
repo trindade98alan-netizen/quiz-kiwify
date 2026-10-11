@@ -1,6 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import handler,{allowedUser,validProgress} from '../api/membros.js';
+import handler,{allowedUser,validProgress,reviewAccess} from '../api/membros.js';
+
+test('Review access matches only the explicitly configured authenticated email',()=>{
+  assert.equal(reviewAccess('owner@example.com',' Owner@Example.com '),true);
+  for(const configured of [undefined,'','*','owner','@example.com'])assert.equal(reviewAccess('owner@example.com',configured),false);
+  assert.equal(reviewAccess('buyer@example.com','owner@example.com'),false);
+  assert.equal(reviewAccess('owner+other@example.com','owner@example.com'),false);
+  assert.equal(reviewAccess(undefined,'owner@example.com'),false);
+});
 
 test('Email ownership is mandatory and banned accounts are rejected',()=>{
   assert.equal(allowedUser({email:'buyer@example.com',emailVerified:true}),true);

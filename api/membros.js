@@ -7,6 +7,7 @@ const fail=(status,message)=>Object.assign(new Error(message),{status});
 let keys;
 export function validProgress(value){return Array.isArray(value)&&value.length<=5&&new Set(value).size===value.length&&value.every(id=>ids.includes(id));}
 export function allowedUser(user,requireVerified=true){return Boolean(user?.email&&!user?.banned&&(!requireVerified||user.emailVerified===true));}
+export function reviewAccess(email,configuredEmail){return typeof email==='string'&&typeof configuredEmail==='string'&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(configuredEmail.trim())&&email.trim().toLowerCase()===configuredEmail.trim().toLowerCase();}
 export default async function handler(req,res) {
   res.setHeader('Cache-Control','private, no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');
   try {
@@ -29,13 +30,16 @@ export default async function handler(req,res) {
     const [user]=await sql`select id,email,"emailVerified",banned from neon_auth."user" where id=${payload.sub}::uuid`;
     if(!allowedUser(user,requireVerified))throw fail(403,requireVerified?'Confirme seu e-mail pelo link recebido para liberar seu acesso. Se precisar, fale com o suporte.':'Este acesso não está disponível. Fale com o suporte.');
     const email=user.email.trim().toLowerCase();
-    const purchases=await sql`select order_id from vsd_purchases where email=${email} and product_id=${productId} and active=true limit 1`;
-    if(!purchases.length)throw fail(403,'Não encontramos uma compra liberada para este e-mail. Confira o e-mail da compra ou fale com o suporte.');
-    if(process.env.MEMBERS_LIVE!=='true')throw fail(503,'Estamos preparando a liberação dos materiais. Fale com o suporte pelo WhatsApp.');
+    const review=reviewAccess(email,process.env.MEMBERS_REVIEW_EMAIL);
+    if(!review){
+      const purchases=await sql`select order_id from vsd_purchases where email=${email} and product_id=${productId} and active=true limit 1`;
+      if(!purchases.length)throw fail(403,'Não encontramos uma compra liberada para este e-mail. Confira o e-mail da compra ou fale com o suporte.');
+      if(process.env.MEMBERS_LIVE!=='true')throw fail(503,'Estamos preparando a liberação dos materiais. Fale com o suporte pelo WhatsApp.');
+    }
     if(action==='sessao') {
       if(!process.env.MEMBERS_VIDEO_ID||!process.env.MEMBERS_SHEET_COPY_URL)throw fail(503,'Estamos preparando os materiais. Fale com o suporte.');
       const [progress]=await sql`select completed from vsd_progress where user_id=${user.id}::uuid`;
-      return res.status(200).json({email,completed:validProgress(progress?.completed)?progress.completed:[],content:{videoId:process.env.MEMBERS_VIDEO_ID,sheetUrl:process.env.MEMBERS_SHEET_COPY_URL,parcelado:true,anti:true,som:true}});
+      return res.status(200).json({email,review,completed:validProgress(progress?.completed)?progress.completed:[],content:{videoId:process.env.MEMBERS_VIDEO_ID,sheetUrl:process.env.MEMBERS_SHEET_COPY_URL,parcelado:true,anti:true,som:true}});
     }
     if(action==='progresso') {
       const completed=req.body?.completed;
