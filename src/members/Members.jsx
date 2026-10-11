@@ -51,7 +51,7 @@ function Login({onSuccess,initialError}) {
       } else if(isReset) {
         result=await authClient.resetPassword({newPassword:password,token:resetToken});
       } else if(isNew) {
-        result=await authClient.signUp.email({email:address,password,name:address.split('@')[0],callbackURL:window.location.origin+'/membros'});
+        result=await authClient.signUp.email({email:address,password,name:address.split('@')[0],...(config.requireVerified!==false?{callbackURL:window.location.origin+'/membros'}:{})});
       } else {
         result=await authClient.signIn.email({email:address,password});
       }
