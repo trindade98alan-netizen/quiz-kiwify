@@ -157,7 +157,8 @@ export default function App() {
   const questionStarted = useRef(0);
   useEffect(() => {
     document.title = 'Sistema Vida Sem Dívidas | Chega de perder as contas';
-    track('landing_view', {entry_stage: offerHashes.includes(window.location.hash) ? 'offer' : 'hook'}, true);
+    const entryStage = offerHashes.includes(window.location.hash) ? 'offer' : 'hook';
+    track(entryStage === 'hook' ? 'landing_view' : 'direct_offer_entry', {entry_stage:entryStage}, true);
     function hashChanged() { if (window.location.hash === '#oferta') setStage('offer'); }
     window.addEventListener('hashchange', hashChanged);
     return () => window.removeEventListener('hashchange', hashChanged);
