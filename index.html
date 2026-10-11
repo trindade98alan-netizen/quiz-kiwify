@@ -3,7 +3,16 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>quiz-financeiro</title>
+    <title>Planilha Vida Sem Dívidas</title>
+    <link rel="preload" href="/fonts/barlow-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/bebas-neue-400.woff2" as="font" type="font/woff2" crossorigin />
+    <script>
+      if (!['#oferta', '#pacote', '#duvidas'].includes(window.location.hash)) {
+        var quizImage = document.createElement('link');
+        quizImage.rel = 'preload'; quizImage.as = 'image'; quizImage.href = '/mockup.webp';
+        document.head.appendChild(quizImage);
+      }
+    </script>
 
     <!-- 🔥 PIXEL UTMIFY OFICIAL -->
     <script>
