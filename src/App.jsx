@@ -27,6 +27,7 @@ function sendAnalytics(event, data) {
   ['question','section','placement','elapsed_ms','completedQuiz','entry_stage','scroll_percent'].forEach(key => {
     if (typeof data[key] === 'number' || typeof data[key] === 'boolean' || typeof data[key] === 'string') safe[key] = data[key];
   });
+  if (isReview) console.debug('[VSD analytics]',event,safe);
   window.gtag('event', event, {...safe, page_location:safePageLocation(), transport_type:'beacon', ...(isReview ? {debug_mode:true} : {})});
   window.clarity?.('event', event);
   if (data.question) window.clarity?.('set','quiz_step',String(data.question));
@@ -71,7 +72,6 @@ function track(event, data = {}, once = false) {
   try {
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({event,...data});
-    if (typeof window.utmify?.track === 'function') window.utmify.track(event,data);
     if (analyticsAllowed) sendAnalytics(event,data);
     else if (readConsent() !== 'denied' && pendingEvents.length < 100) pendingEvents.push({event,data});
   } catch { /* Tracking must never block the quiz or checkout. */ }
