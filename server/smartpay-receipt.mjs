@@ -9,7 +9,8 @@ export function validSecret(value,expected){
 export function receiptShape(value,key='',depth=0){
   if(depth>7)return '[depth limit]';
   if(value===null)return null;
-  if(Array.isArray(value))return value.slice(0,3).map(item=>receiptShape(item,key,depth+1));
+  // Preserve the main product plus all three bumps when a sale uses line items.
+  if(Array.isArray(value))return value.slice(0,20).map(item=>receiptShape(item,key,depth+1));
   if(typeof value==='object')return Object.fromEntries(Object.entries(value).slice(0,60).map(([name,item])=>[name.slice(0,80),receiptShape(item,name,depth+1)]));
   if(typeof value==='string'){
     const normalized=key.replace(/[^a-z]/gi,'').toLowerCase();
