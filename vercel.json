@@ -11,6 +11,10 @@
     {
       "source": "/membros/previa",
       "destination": "/index.html"
+    },
+    {
+      "source": "/membros/adicionais/:id",
+      "destination": "/index.html"
     }
   ],
   "headers": [
