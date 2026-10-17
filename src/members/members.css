@@ -7,3 +7,18 @@
 @media(max-width:760px){.m-hero>img{top:-150px;height:620px;object-position:67% center}}
 @media(max-width:360px){.m-hero h1{font-size:49px}.m-header{padding:0 17px}.m-content{padding:0 18px}.m-login-story h1{font-size:58px}.m-login-included{font-size:9px}.m-hero{padding-left:20px;padding-right:20px}.m-help-card>div:nth-child(2){min-width:150px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation:none!important;transition:none!important}}
+
+/* Convite opcional de ajuda, sem bloquear o conteúdo comprado. */
+.m-getting-started{display:flex;align-items:center;gap:28px;margin:30px 0 10px;padding:28px;border:1px solid #315543;border-radius:10px;background:linear-gradient(120deg,#182b22,#111b17)}
+.m-getting-started-copy{flex:1;min-width:0}
+.m-getting-started .m-eyebrow{color:#a6dfb7;font-size:9px;letter-spacing:1.4px}
+.m-getting-started h2{font-family:inherit;font-size:24px;font-weight:700;line-height:1.2;margin:10px 0}
+.m-getting-started p{color:#bdcdc2;font-size:14px;line-height:1.65;margin:0 0 12px;max-width:650px}
+.m-getting-started small{display:block;color:#a5b8ac;font-size:12px;line-height:1.6}
+.m-whatsapp-button{flex-shrink:0;background:#b3e6bd;color:#112417;text-align:center;white-space:normal}
+.m-whatsapp-button:hover{background:#d1f4d7}
+.m-dialog .m-getting-started{flex-direction:column;align-items:stretch;gap:18px;padding:22px;margin-top:25px}
+.m-dialog .m-getting-started h2{font-family:inherit;font-size:23px}
+.m-dialog .m-getting-started p{font-size:14px;margin:0 0 12px}
+.m-getting-started .m-whatsapp-button:focus-visible{outline:3px solid #ffcf37;outline-offset:4px}
+@media(max-width:760px){.m-getting-started{flex-direction:column;align-items:stretch;gap:20px;padding:22px;margin-top:25px}.m-getting-started h2{font-size:23px}.m-getting-started .m-whatsapp-button{width:100%;padding:15px 12px;font-size:14px}.m-getting-started .m-eyebrow{line-height:1.6}}
