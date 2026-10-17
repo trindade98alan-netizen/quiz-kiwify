@@ -1,3 +1,4 @@
+import {cleanEvent,insertEvents,measurementReport} from '../server/measurement.mjs';
 import {neon} from '@neondatabase/serverless';
 import {createRemoteJWKSet,jwtVerify} from 'jose';
 import {addonIds,addonCatalog,canUseAddon,validAddonState,validateProduct} from '../server/addons.mjs';
@@ -14,8 +15,8 @@ export default async function handler(req,res) {
   res.setHeader('Cache-Control','private, no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');
   try {
     const action=req.query?.action;
-    if(!['configuracao','sessao','progresso','arquivo','adicional','estado','produto'].includes(action))throw fail(404,'Página não encontrada.');
-    const method=['progresso','estado','produto'].includes(action)?'POST':'GET';
+    if(!['configuracao','sessao','progresso','arquivo','adicional','estado','produto','evento','metricas'].includes(action))throw fail(404,'Página não encontrada.');
+    const method=['progresso','estado','produto','evento'].includes(action)?'POST':'GET';
     if(req.method!==method){res.setHeader('Allow',method);throw fail(405,'Método não permitido.');}
     const requireVerified=process.env.MEMBERS_REQUIRE_VERIFIED_EMAIL!=='false';
     if(action==='configuracao')return res.status(200).json({ready:process.env.MEMBERS_AUTH_READY==='true',requireVerified});
@@ -45,6 +46,18 @@ export default async function handler(req,res) {
     }
     if(!base&&!addons.some(x=>x.owned))throw fail(403,'Não encontramos uma compra liberada para este e-mail. Confira o e-mail da compra ou fale com o suporte.');
     if(!review&&process.env.MEMBERS_LIVE!=='true')throw fail(503,'Estamos preparando a liberação dos materiais. Fale com o suporte pelo WhatsApp.');
+    if(action==='metricas'){
+      if(!review)throw fail(403,'Este painel é exclusivo do administrador.');
+      const days=[1,3,7,30].includes(Number(req.query.days))?Number(req.query.days):7;
+      return res.status(200).json(await measurementReport(sql,days,req.query.internal==='1'));
+    }
+    if(action==='evento'){
+      if(!Array.isArray(req.body?.events)||req.body.events.length>20||JSON.stringify(req.body).length>24000)throw fail(400,'Evento inválido.');
+      const events=req.body.events.map(e=>cleanEvent(e,true)).filter(Boolean);
+      if(!events.length)throw fail(400,'Evento inválido.');
+      await insertEvents(sql,events,user.id,review);
+      return res.status(202).json({ok:true});
+    }
     if(action==='produto'){
       if(!review)throw fail(403,'A configuração de produtos é exclusiva do administrador.');
       if(!validateProduct(req.body)||req.body.productId===productId)throw fail(400,'Informe o ID do adicional e o link de checkout correspondente da SmartPay. Não use o produto principal.');

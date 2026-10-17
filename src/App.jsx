@@ -1,3 +1,4 @@
+import {recordMeasurement,flushMeasurement,discardMeasurement} from './measurement.mjs';
 import { checkoutAttribution } from './attribution.mjs';
 import { useEffect, useRef, useState } from 'react';
 
@@ -24,6 +25,7 @@ function safePageLocation() {
 }
 function sendAnalytics(event, data, onSent) {
   if (!analyticsAllowed || !analyticsReady || !publicPage) return;
+  recordMeasurement(event,data);
   const safe = { funnel_version:'vsd-2026-10', traffic_type:isReview ? 'internal' : 'external' };
   // Only behavioral metadata: never send answers, financial scores or contact details.
   ['question','section','placement','elapsed_ms','completedQuiz','entry_stage','scroll_percent'].forEach(key => {
@@ -90,6 +92,7 @@ function AnalyticsPrivacy() {
     if (value === 'granted') enableAnalytics();
     else {
       analyticsAllowed = false;
+      discardMeasurement();
       pendingEvents.length = 0;
       window['ga-disable-' + GA_ID] = true;
       window.gtag?.('consent','update',{analytics_storage:'denied'});
@@ -146,7 +149,7 @@ function CheckoutButton({ placement, children = 'QUERO MEU SISTEMA AGORA' }) {
     track('offer_click', {placement});
     if (analyticsAllowed && analyticsReady) {
       let navigating = false;
-      const go = () => { if (!navigating) { navigating = true; window.location.assign(url.href); } };
+      const go = () => { if (!navigating) { navigating = true; flushMeasurement();window.location.assign(url.href); } };
       // Let GA dispatch the final event, with a hard fallback so analytics never blocks checkout.
       track('checkout_click', {placement}, false, go);
       window.setTimeout(go,500);

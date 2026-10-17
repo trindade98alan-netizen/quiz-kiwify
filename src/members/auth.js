@@ -9,7 +9,7 @@ export async function memberFetch(action, body) {
   if(error&&(error.status>=500||error.status===0||['REQUEST_TIMEOUT','NETWORK_ERROR','ERR_NETWORK'].includes(error.code)))throw Object.assign(new Error(ACCESS_SLOW_MESSAGE),{status:503});
   if(error || !data?.token)throw Object.assign(new Error('Entre com seu e-mail e senha para continuar.'),{status:401});
   return fetchWithDeadline(`/api/membros?action=${action}`,{
-    method:body?'POST':'GET',credentials:'same-origin',
+    method:body?'POST':'GET',credentials:'same-origin',...(action==='evento'?{keepalive:true}:{}),
     headers:{Authorization:`Bearer ${data.token}`,...(body?{'Content-Type':'application/json'}:{})},
     body:body?JSON.stringify(body):undefined,
   });
