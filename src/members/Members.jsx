@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import './members.css';
 import { authClient, memberFetch } from './auth';
+import { withDeadline, fetchWithDeadline, accessErrorMessage, ACCESS_SLOW_MESSAGE } from '../../shared/request.mjs';
 
 const preview = window.location.pathname.startsWith('/membros/previa');
 const lessons = [
@@ -18,10 +19,12 @@ const steps = [
   ['Anote o que entra e o que sai','Siga a videoaula, preencha os campos indicados e preserve as fórmulas. Use seus números, mesmo que no começo falte alguma informação.'],
 ];
 async function api(action, body) {
+  return withDeadline((async()=>{
   const response = await memberFetch(action, body);
   const data = await response.json();
   if (!response.ok) throw Object.assign(new Error(data.message || 'Não foi possível concluir agora. Tente novamente.'), {status:response.status});
   return data;
+  })());
 }
 function Icon({name,size=20}) {
   const paths = {play:<path d="m9 5 10 7-10 7V5Z"/>,arrow:<><path d="M5 12h14m-6-6 6 6-6 6"/></>,check:<path d="m5 12 4 4L19 6"/>,lock:<><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>,download:<><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></>,close:<path d="m6 6 12 12M6 18 18 6"/>,mail:<><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></>,help:<><path d="M21 11.5a9 9 0 0 1-9 9H4l-2 2V12a10 10 0 0 1 19-.5Z"/><path d="M8 9a3 3 0 1 1 5 2c-1 1-1 1-1 3m0 2v1"/></>,logout:<><path d="M9 4H4v16h5m6-13 5 5-5 5m-7-5h12"/></>};
@@ -40,22 +43,27 @@ function Login({onSuccess,initialError}) {
   async function submit(e) {
     e.preventDefault();setError('');setNotice('');setBusy(true);
     try {
-      const configResponse=await fetch('/api/membros?action=configuracao');
-      const config=await configResponse.json();
-      if(!configResponse.ok||!config.ready)throw new Error('Estamos preparando a liberação do acesso. Se já comprou, fale com o suporte pelo WhatsApp.');
+      const config=await withDeadline((async()=>{
+        const response=await fetchWithDeadline('/api/membros?action=configuracao');
+        const data=await response.json();
+        if(!response.ok)throw Object.assign(new Error(data.message||ACCESS_SLOW_MESSAGE),{status:response.status});
+        return data;
+      })());
+      if(!config.ready)throw new Error('Estamos preparando a liberação do acesso. Se já comprou, fale com o suporte pelo WhatsApp.');
       if((isNew||isReset)&&password!==confirm)throw new Error('As senhas não estão iguais. Confira e tente novamente.');
       const address=email.trim().toLowerCase();
       let result;
       if(isForgot) {
-        result=await authClient.requestPasswordReset({email:address,redirectTo:window.location.origin+'/membros?recuperar=1'});
+        result=await withDeadline(authClient.requestPasswordReset({email:address,redirectTo:window.location.origin+'/membros?recuperar=1'}),16000);
       } else if(isReset) {
-        result=await authClient.resetPassword({newPassword:password,token:resetToken});
+        result=await withDeadline(authClient.resetPassword({newPassword:password,token:resetToken}),16000);
       } else if(isNew) {
-        result=await authClient.signUp.email({email:address,password,name:address.split('@')[0],...(config.requireVerified!==false?{callbackURL:window.location.origin+'/membros'}:{})});
+        result=await withDeadline(authClient.signUp.email({email:address,password,name:address.split('@')[0],...(config.requireVerified!==false?{callbackURL:window.location.origin+'/membros'}:{})}),16000);
       } else {
-        result=await authClient.signIn.email({email:address,password});
+        result=await withDeadline(authClient.signIn.email({email:address,password}),16000);
       }
       if(result.error) {
+        if(result.error.status>=500||result.error.status===0||['REQUEST_TIMEOUT','NETWORK_ERROR','ERR_NETWORK'].includes(result.error.code))throw Object.assign(new Error(ACCESS_SLOW_MESSAGE),{status:503});
         if(result.error.code==='EMAIL_NOT_VERIFIED')throw new Error('Abra o link de confirmação enviado para seu e-mail antes de entrar. Confira também o spam.');
         if(isNew&&['USER_ALREADY_EXISTS','USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL','EMAIL_ALREADY_EXISTS'].includes(result.error.code)){changeMode('login');throw new Error('Você já tem uma senha. Entre com o e-mail da compra e a senha que criou. Se não lembrar, use “Esqueci minha senha”.');}
         throw new Error(isForgot||isReset?'Não foi possível concluir. Tente novamente ou fale com o suporte.':'Confira seu e-mail e sua senha. Se este é seu primeiro acesso, clique em “Criar minha senha”.');
@@ -65,13 +73,13 @@ function Login({onSuccess,initialError}) {
       if(isReset){window.history.replaceState(null,'','/membros');setMode('login');setNotice('Senha atualizada. Agora entre com seu e-mail e a nova senha.');return;}
       if(isNew&&config.requireVerified!==false){setMode('login');setNotice('Confira seu e-mail e abra o link de confirmação. Depois, entre com a senha que você acabou de criar.');return;}
       if(isNew){
-        const login=await authClient.signIn.email({email:address,password});
-        if(login.error){setMode('login');throw new Error('Sua conta foi criada. Entre com o e-mail da compra e a senha que você escolheu.');}
+        const login=await withDeadline(authClient.signIn.email({email:address,password}),16000);
+        if(login.error){if(login.error.status>=500||login.error.status===0)throw Object.assign(new Error(ACCESS_SLOW_MESSAGE),{status:503});setMode('login');throw new Error('Sua conta foi criada. Entre com o e-mail da compra e a senha que você escolheu.');}
       }
       const session=await api('sessao');
       try{localStorage.setItem('vsd-member-returning','true');}catch{/* Device preference is optional. */}
       onSuccess(session);
-    } catch(err){setError(err.message);} finally {setBusy(false);}
+    } catch(err){setError(accessErrorMessage(err));} finally {setBusy(false);}
   }
   const title=isNew?'Crie sua senha.':isReset?'Sua nova senha.':isForgot?'Vamos recuperar?':'Vamos começar?';
   const description=isNew?'Use o mesmo e-mail da compra e escolha uma senha para acessar seus materiais.':isReset?'Escolha uma nova senha para voltar à sua área.':isForgot?'Informe o e-mail da compra para receber o link de recuperação.':'Entre com o e-mail da compra e a sua senha. Seus materiais estão esperando por você.';
@@ -103,8 +111,8 @@ function Library({session,onLogout}) {
 }
 export default function Members() {
   const [state,setState]=useState(preview?{status:'ready',session:{email:'alan@exemplo.com',completed:[]}}:{status:'loading'});
-  useEffect(()=>{document.title='Sua área de membros | Sistema Vida Sem Dívidas';if(preview)return;let alive=true;api('sessao').then(data=>{if(alive)setState({status:'ready',session:data});}).catch(error=>{if(alive)setState({status:'login',error:error.status===401?null:error.message});});return()=>{alive=false;};},[]);
-  async function logout(){if(preview){window.location.assign('/membros');return;}try{const result=await authClient.signOut();if(result.error)throw result.error;setState({status:'login'});}catch{setState(s=>({...s,error:'Não foi possível sair agora. Tente novamente.'}));}}
+  useEffect(()=>{document.title='Sua área de membros | Sistema Vida Sem Dívidas';if(preview)return;let alive=true;api('sessao').then(data=>{if(alive)setState({status:'ready',session:data});}).catch(error=>{if(alive)setState({status:'login',error:error.status===401?null:accessErrorMessage(error)});});return()=>{alive=false;};},[]);
+  async function logout(){if(preview){window.location.assign('/membros');return;}try{const result=await withDeadline(authClient.signOut(),16000);if(result.error)throw result.error;setState({status:'login'});}catch{setState(s=>({...s,error:'Não foi possível sair agora. Tente novamente.'}));}}
   if(state.status==='loading')return <div className="m-loading"><Brand/><div className="m-spinner"/><p>Preparando seu espaço…</p></div>;
   if(state.status==='ready')return <><Library session={state.session} onLogout={logout}/>{state.error&&<p className="m-global-error" role="alert">{state.error}</p>}</>;
   return <Login initialError={state.error} onSuccess={session=>setState({status:'ready',session})}/>;
