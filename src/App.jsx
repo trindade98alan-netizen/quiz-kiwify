@@ -1,3 +1,4 @@
+import { checkoutAttribution } from './attribution.mjs';
 import { useEffect, useRef, useState } from 'react';
 
 
@@ -11,6 +12,7 @@ let clarityStopped = false;
 let analyticsAllowed = false;
 const isReview = new URLSearchParams(window.location.search).get('analytics_test') === '1';
 const publicPage = !window.location.pathname.startsWith('/membros');
+if (publicPage) checkoutAttribution(window.location.search);
 function readConsent() {
   try { return localStorage.getItem(consentKey); } catch { return null; }
 }
@@ -139,8 +141,8 @@ function CheckoutButton({ placement, children = 'QUERO MEU SISTEMA AGORA' }) {
     let url;
     try { url = new URL(checkoutUrl); } catch { setNotice(true); return; }
     if (url.protocol !== 'https:') { setNotice(true); return; }
-    const params = new URLSearchParams(window.location.search);
-    ['utm_source','utm_medium','utm_campaign','utm_content','utm_term','utm_id','src','sck','fbclid','gclid','ttclid'].forEach(key => { if (params.has(key)) url.searchParams.set(key, params.get(key)); });
+    const params = checkoutAttribution(window.location.search);
+    params.forEach((value, key) => url.searchParams.set(key, value));
     track('offer_click', {placement});
     if (analyticsAllowed && analyticsReady) {
       let navigating = false;
@@ -153,7 +155,7 @@ function CheckoutButton({ placement, children = 'QUERO MEU SISTEMA AGORA' }) {
       window.location.assign(url.href);
     }
   }
-  return <div className="buy-control"><button className="big-button" onClick={checkout}>{children}<Arrow /></button>{notice && <p className="checkout-notice" role="status">As vendas da nova oferta ainda não abriram. Volte em breve pra acessar por R$24,90.</p>}</div>;
+  return <div className="buy-control"><button className="big-button vsd-checkout" onClick={checkout}>{children}<Arrow /></button>{notice && <p className="checkout-notice" role="status">As vendas da nova oferta ainda não abriram. Volte em breve pra acessar por R$24,90.</p>}</div>;
 }
 function SectionLabel({ number, children }) { return <p className="section-label"><span>{number}</span>{children}</p>; }
 

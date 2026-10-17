@@ -22,10 +22,23 @@
       a.setAttribute("async", "");
       a.setAttribute("defer", "");
       a.setAttribute("src", "https://cdn.utmify.com.br/scripts/pixel/pixel.js");
-      document.head.appendChild(a);
+      a.id = "vsd-utmify-pixel";
+      if (!document.querySelector('script[src="https://cdn.utmify.com.br/scripts/pixel/pixel.js"]')) document.head.appendChild(a);
       }
     </script>
     <!-- END PIXEL UTMIFY -->
+    <script>
+      if (!window.location.pathname.startsWith('/membros') && !document.querySelector('script[src="https://cdn.utmify.com.br/scripts/utms/latest.js"]')) {
+        var utms = document.createElement('script');
+        utms.id = 'vsd-utmify-utms';
+        utms.src = 'https://cdn.utmify.com.br/scripts/utms/latest.js';
+        utms.async = true;
+        utms.defer = true;
+        utms.setAttribute('data-utmify-prevent-xcod-sck', '');
+        utms.setAttribute('data-utmify-prevent-subids', '');
+        document.head.appendChild(utms);
+      }
+    </script>
 
   </head>
 
